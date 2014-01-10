@@ -1,0 +1,41 @@
+# alias Rex.Signal
+# alias Rex.Message.Stream, MStream
+
+# # Slow day.
+# mailbox = MStream.reader(self)
+# # Let's send an message to ourselves!
+# send_to = self |> MStream.forwarder
+# # ...through another person...
+# mailman = Signal.open(send_to, logger: &(&1 |> inspect |> IO.puts))
+# # ...saying hi to ourselves.
+# Signal.send(mailman, "How are you fine sir?")
+# #==> {:sent, "How are you fine sir?", #HashSet<[#PID<0.26.0>]>}
+
+# # Did we get it? Let's check messages from ourselves.
+# mailbox |> Enum.take(1) |> inspect |> IO.puts
+# #==> ["How are you fine sir?"]
+
+# # Holy hell that's cool.
+
+# # Now let's say someone's listening in...
+# eavesdrop_on = self |> MStream.reader
+# # ...reading what we send...
+# snoop = Signal.open(eavesdrop_on, logger: &(&1 |> inspect |> Kernel.<>(" read by snoop") |> IO.puts))
+# # ...through the mailman...
+# Signal.send(mailman, { :subscribe, snoop.pid })
+# # ...without us knowing!
+# #==> {:subscribed, #PID<0.98.0>}
+# Signal.send(mailman, "Confidentially, I have a crush on Meg Ryan.")
+# #==> {:sent, "Confidentially, I have a crush on Meg Ryan.", #HashSet<[#PID<0.26.0>, #PID<0.98.0>]>}
+# #==> "Confidentially, I have a crush on Meg Ryan." read by snoop
+
+# # We got the message, but we lost our dignity.
+# mailbox |> Enum.take(1) |> inspect |> IO.puts
+# #==> ["Confidentially, I have a crush on Meg Ryan."]
+# # Let's never do this again.
+# Signal.close(mailman)
+# Signal.close(snoop)
+
+# # I haven't really tested the composability of any of these until just now. :D
+# # This is super exciting. Now to abstract away boilerplate! We should be able to
+# # streamline all this, build in better error handling, and make even cooler things on it.
