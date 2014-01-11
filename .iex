@@ -1,3 +1,14 @@
+alias Rex.Signal
+alias Rex.Signal.Logger
+
+server = Signal.start logger: &Logger.output/1
+
+Signal.send(server, { :put, 1 })
+Signal.send(server, :get)
+Signal.send(server, { :update, fn x -> x + 1 end})
+
+# No longer working
+
 # alias Rex.Signal
 # alias Rex.Message.Stream, MStream
 

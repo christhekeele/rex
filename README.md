@@ -3,54 +3,103 @@ Rex
 
 Rex is an attempt to add high-level, lightweight, dynamic abstractions of time-mutating values, and thereby native OTP constructs, futures, reactive programming, and entity-component-system data modeling, to Elixir.
 
-Right now it's more of a sandbox and repository of ideas. Hopefully the two will grow ever closer in implementation!
+Right now it's more of a sandbox and repository of ideas. Hopefully the two will grow ever closer in implementation! In the meantime, expect names, implementations, basic logic, and pretty much everything to change.
 
 Goals
 -----
 
-The goals of Rex are four-fold:
+- Abstract common patterns of message sending, process spawning, and the like through functional composition with native Elixir tools.
 
-- Build native Elixir tools around common patterns of message sending, process spawning, and the like
+- Build pre-defined abstractions, and template and helper functions, for as many parts of the composition as possible.
+
+  Optimistically this will allow even the most custom behaviour to be easily defined. Pessimistically, when the stack explodes there will be as many concrete, non-anonymized places as possible in the trace to refer to.
+
 - Create abstractions around them for common short-lived tasks like futures
+
 - Create abstractions around them for common longer-lived tasks that rival OTP, but with a less implementation-leaking API and dynamic handlers
+
 - Explore other high-level abstractions available with these tool such as FRP, ECS, etc
 
-Primitives
-----------
-
-The primitive building blocks of our abstractions themselves are built out of message streams.
-
-### Message streams
-
-Message streams wrap `receive` blocks with anonymous functions compliant with the Stream API.
-
-They can be easily constructed using the `Message.stream` macro, and more custom ones with `Stream.repeatedly`, `Stream.unfold`, or `Stream.resource` in conjunction with a macro and `Message.iterator`.
-
-The basic message iterator is an anonymous function that wraps a `receive` block.
-
-Every received message should return either a two-tuple, `nil`, or a three-tuple of the format `{ :suspended, new_state, new_stream }`. The first element of the two tuple outputs to the stream, which is used by stream loggers. The second value is a state used in the next iteration. Returning `nil` terminates the stream, and the three-tuple allows you to migrate state and hot-code swap the stream in favor of another.
-
-Examples can be found in `Message.Stream`.
+Signals
+-------
 
 ### Signals
 
-Signals (also commonly Behaviours in the FRP world, but that's taken) are observable data structures that mutate over time. They should be implemented like lightweight GenServers: a good dsl for constructing synchronous and asynchronous calls, initialization and termination handlers, and making them easily sharable.
+Signals (also commonly Behaviours in the FRP world, but that's taken) are observable data structures that live in their own processes, mutate over time, and have a well-formed API for communication. They should be implemented like lightweight GenServers: a good dsl for constructing synchronous and asynchronous calls, initialization and termination handlers, and making them easily sharable.
 
-Creating signals simply involves starting trying to fully enumerate message streams in another process, storing the pid for access, and sending it messages so it can step through the stream its running. Making them user-friendly is more difficult.
+They're implemented entirely through function composition, streams, and primitive process+message handling.
 
-This will involve:
+The process of defining and starting a signal looks something like this:
 
-- coming up with a well-defined API for message stream responses that behave synchronously, asynchronously, and terminate cleanly in event of exception or request
-- coming up with a DSL that abstracts the construction of message streams that conform to this API
-- coming up with easy logging facilities
-- implementing open and close type constructors for them
-- coming up with temporary signal macros that handle opening and construction for you
+```elixir
+Rex.Signal[pid:
+  Process.spawn_link(
+    fn ->
+      Stream.resource(
+        initializer,
+        fn state ->
+          try do
+            receive do
+              { from, msg } -> handler.(from, msg, state)
+              other         -> ignorer.(other, state)
+            after timeout   -> idler.(state)
+            end
+          rescue
+            error -> rescuer(error, state)
+          end
+        end,
+        terminator
+      ) |> Stream.each(logger) |> Stream.run
+    end
+  )
+]
+```
+
+This process requires 7 functions and one value:
+
+- `initializer/0`
+
+  Lazily sets the initial state of the signal's running resource stream.
+
+- `handler/3`
+
+  The most important component: invoked on every received message, it steers the flow of all expected cases by acting on the sending process's pid, the message sent, and the state.
+
+  It's also the first producer function: whatever its execution, it generally should return a two-tuple of the form: `{ loggable, new_state }`. We'll get into loggables in a bit.
+
+- `ignorer/2`
+
+  While all good handlers should have backup clauses for the unexpected, messages that don't match the standard anticipated `{ from_pid, msg }` format can be handled with an ignorer function that takes the rouge message and the state. It too must return as a producer.
+
+  The (sensible) default for this is to do nothing, but log the occurrence and keep the state the same.
+
+- `timeout // :infinity`
+
+  If `timeout` is set to anything other than `:infinity`, the `idler/1` function is invoked.
+
+- `idler/1`
+
+  In the event of a timeout, the idler is invoked on the state. Note that it shouldn't be used for cleanup, but rather, for specific, intended behaviour if you're harnessing timeouts for some purpose. It too must act as a producer.
+
+  The sensible default for an idler is to return `nil` instead of a `{ loggable, new_state }`, effectively terminating the stream. However, it can also be used in conjunction with a timeout to perform regular actions during inactive periods.
+
+- `rescuer/2`
+
+  The last function that must act as a producer, the rescuer catches exceptions and the state and decides where to go from there.
+
+- `terminator/1`
+
+  Should the stream end (by a producer returning `nil`), the terminator takes in the state and performs any cleanup.
+
+- `logger/1`
+
+  Finally, since the entire signal is implemented as a stream that emits values, the logger catches all `loggables` emitted by producers and does whatever you want it to.
+
+Obviously, the core function to focus on is the `handler`. A DSL for defining robust handlers, as well as a standard API for them, is priority number one.
 
 #### Notes
 
-- The term *signal* sometimes refers to a built-in combination of a *behaviour* (time-varying data) and its *events* in FRP. Rex signals are data sans events; furthermore, conflating the two is to create a latency-tolerant OOP system. Every effort is taken to keep signals from being misused as global variables or objects in Rex.
-
-- With the continuable stream API, hot code swapping is a simple as sending a state-transformation function and a new message stream to the signal. When it receives it, it can update its state and resume on next call with the new stream (at least in my head that should work).
+- With the continuable stream API, hot code swapping is a simple as sending a state-transformation function and a new handler to the signal at an anticipated endpoint. When it receives it, it can update its state and resume on next step with the new stream (at least in my head that should work).
 
 Abstractions
 ------------
