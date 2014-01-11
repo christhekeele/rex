@@ -16,14 +16,14 @@ defrecord Rex.Signal, pid: nil do
   """
 
   def start(components // []) when is_list components do
-    initializer = Dict.get(components, :initializer, &Initializer.default/0) # ✔︎
-    handler     = Dict.get(components, :handler,     &Handler.default/3)     # ✔︎
-    ignorer     = Dict.get(components, :ignorer,     &Ignorer.default/2)     # ✔︎
-    idler       = Dict.get(components, :idler,       &Idler.default/1)       # ✔︎
-    rescuer     = Dict.get(components, :rescuer,     &Rescuer.default/2)     # ✔︎
-    terminator  = Dict.get(components, :terminator,  &Terminator.default/1)  # ✔︎
-    logger      = Dict.get(components, :logger,      &Logger.default/1)      # ✔︎
-    timeout     = Dict.get(components, :timeout,    :infinity)               # ✔︎
+    initializer = Dict.get(components, :initializer, Initializer.default) # ✔︎
+    handler     = Dict.get(components, :handler,     Handler.default)     # ✔︎
+    ignorer     = Dict.get(components, :ignorer,     Ignorer.default)     # ✔︎
+    idler       = Dict.get(components, :idler,       Idler.default)       # ✔︎
+    rescuer     = Dict.get(components, :rescuer,     Rescuer.default)     # ✔︎
+    terminator  = Dict.get(components, :terminator,  Terminator.default)  # ✔︎
+    logger      = Dict.get(components, :logger,      Logger.default)      # ✔︎
+    timeout     = Dict.get(components, :timeout,    :infinity)            # ✔︎
     start(initializer, handler, ignorer, idler, rescuer, terminator, logger, timeout)
   end
 

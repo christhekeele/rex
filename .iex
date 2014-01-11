@@ -1,7 +1,7 @@
 alias Rex.Signal
 alias Rex.Signal.Logger
 
-server = Signal.start logger: &Logger.output/1
+server = Signal.start logger: Logger.output
 
 Signal.send(server, { :put, 1 })
 Signal.send(server, :get)

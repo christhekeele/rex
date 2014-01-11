@@ -12,13 +12,13 @@ Goals
 
 - Build pre-defined abstractions, and template and helper functions, for as many parts of the composition as possible.
 
-  Optimistically this will allow even the most custom behaviour to be easily defined. Pessimistically, when the stack explodes there will be as many concrete, non-anonymized places as possible in the trace to refer to.
+- Build a robust DSL for defining the most common signals.
 
-- Create abstractions around them for common short-lived tasks like futures
+- Create abstractions around signals for common short-lived tasks like futures.
 
-- Create abstractions around them for common longer-lived tasks that rival OTP, but with a less implementation-leaking API and dynamic handlers
+- Create abstractions around signals for common longer-lived tasks that rival OTP, but with a less implementation-leaking API and dynamic handlers.
 
-- Explore other high-level abstractions available with these tool such as FRP, ECS, etc
+- Explore other high-level abstractions available with these tool such as FRP, ECS, etc.
 
 Signals
 -------
@@ -96,6 +96,8 @@ This process requires 7 functions and one value:
   Finally, since the entire signal is implemented as a stream that emits values, the logger catches all `loggables` emitted by producers and does whatever you want it to.
 
 Obviously, the core function to focus on is the `handler`. A DSL for defining robust handlers, as well as a standard API for them, is priority number one.
+
+As patterns and DSLs emerge, the way these composed functions interact will likely be refined. Some behaviours may be predetermined to the extent that end users will lose the ability to select them all together. We'll see.
 
 #### Notes
 
